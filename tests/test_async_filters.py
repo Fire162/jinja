@@ -5,6 +5,7 @@ import pytest
 from markupsafe import Markup
 
 from jinja2 import Environment
+from jinja2 import StrictUndefined
 from jinja2.async_utils import auto_aiter
 
 
@@ -221,6 +222,14 @@ def test_attribute_map(env_async, users):
 def test_empty_map(env_async):
     tmpl = env_async.from_string('{{ none|map("upper")|list }}')
     assert tmpl.render() == "[]"
+
+
+def test_map_default_none_strict_undefined(env_async):
+    env_async.undefined = StrictUndefined
+    tmpl = env_async.from_string(
+        '{{ [{"foo": 1}, {}]|map(attribute="foo", default=none)|list }}'
+    )
+    assert tmpl.render() == "[1, None]"
 
 
 @mark_dualiter("items", lambda: [1, 2, 3, 4, 5, 6])

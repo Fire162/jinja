@@ -731,6 +731,9 @@ class TestFilter:
         test_str = env.from_string(
             '{{ users|map(attribute="lastname", default="")|join(", ") }}'
         )
+        test_none = env.from_string(
+            '{{ users|map(attribute="lastname", default=none)|list }}'
+        )
         users = [
             Fullname("john", "lennon"),
             Fullname("jane", "edwards"),
@@ -740,6 +743,14 @@ class TestFilter:
         assert tmpl.render(users=users) == "lennon, edwards, None, smith"
         assert test_list.render(users=users) == "lennon, edwards, None, ['smith', 'x']"
         assert test_str.render(users=users) == "lennon, edwards, None, "
+        assert test_none.render(users=users) == "['lennon', 'edwards', None, None]"
+
+    def test_map_default_none_strict_undefined(self):
+        env = Environment(undefined=StrictUndefined)
+        tmpl = env.from_string(
+            '{{ [{"foo": 1}, {}]|map(attribute="foo", default=none)|list }}'
+        )
+        assert tmpl.render() == "[1, None]"
 
     def test_simple_select(self, env):
         env = Environment()

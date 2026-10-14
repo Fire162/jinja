@@ -21,6 +21,7 @@ from .async_utils import auto_to_list
 from .exceptions import FilterArgumentError
 from .runtime import Undefined
 from .utils import htmlsafe_json_dumps
+from .utils import missing
 from .utils import pass_context
 from .utils import pass_environment
 from .utils import pass_eval_context
@@ -59,7 +60,7 @@ def make_attrgetter(
     environment: "Environment",
     attribute: str | int | None,
     postprocess: t.Callable[[t.Any], t.Any] | None = None,
-    default: t.Any | None = None,
+    default: t.Any = missing,
 ) -> t.Callable[[t.Any], t.Any]:
     """Returns a callable that looks up the given attribute from a
     passed object with the rules of the environment.  Dots are allowed
@@ -72,7 +73,7 @@ def make_attrgetter(
         for part in parts:
             item = environment.getitem(item, part)
 
-            if default is not None and isinstance(item, Undefined):
+            if default is not missing and isinstance(item, Undefined):
                 item = default
 
         if postprocess is not None:
@@ -1263,7 +1264,7 @@ def sync_do_groupby(
         environment,
         attribute,
         postprocess=ignore_case if not case_sensitive else None,
-        default=default,
+        default=default if default is not None else missing,
     )
     out = [
         _GroupTuple(key, list(values))
@@ -1272,7 +1273,9 @@ def sync_do_groupby(
 
     if not case_sensitive:
         # Return the real key from the first value instead of the lowercase key.
-        output_expr = make_attrgetter(environment, attribute, default=default)
+        output_expr = make_attrgetter(
+            environment, attribute, default=default if default is not None else missing
+        )
         out = [_GroupTuple(output_expr(values[0]), values) for _, values in out]
 
     return out
@@ -1290,7 +1293,7 @@ async def do_groupby(
         environment,
         attribute,
         postprocess=ignore_case if not case_sensitive else None,
-        default=default,
+        default=default if default is not None else missing,
     )
     out = [
         _GroupTuple(key, await auto_to_list(values))
@@ -1299,7 +1302,9 @@ async def do_groupby(
 
     if not case_sensitive:
         # Return the real key from the first value instead of the lowercase key.
-        output_expr = make_attrgetter(environment, attribute, default=default)
+        output_expr = make_attrgetter(
+            environment, attribute, default=default if default is not None else missing
+        )
         out = [_GroupTuple(output_expr(values[0]), values) for _, values in out]
 
     return out
@@ -1485,6 +1490,9 @@ def sync_do_map(
         (getattr(u, "username", "Anonymous") for u in users)
         (do_lower(x) for x in titles)
 
+    .. versionchanged:: 3.2.0
+        The ``default`` parameter can be ``None`` (or ``none`` in templates).
+
     .. versionchanged:: 2.11.0
         Added the ``default`` parameter.
 
@@ -1513,7 +1521,7 @@ def do_map(
     value: t.AsyncIterable[t.Any] | t.Iterable[t.Any],
     *,
     attribute: str = ...,
-    default: t.Any | None = None,
+    default: t.Any = ...,
 ) -> t.Iterable[t.Any]: ...
 
 
@@ -1720,7 +1728,7 @@ def prepare_map(
 ) -> t.Callable[[t.Any], t.Any]:
     if not args and "attribute" in kwargs:
         attribute = kwargs.pop("attribute")
-        default = kwargs.pop("default", None)
+        default = kwargs.pop("default", missing)
 
         if kwargs:
             raise FilterArgumentError(
